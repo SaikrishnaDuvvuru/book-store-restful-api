@@ -1,5 +1,5 @@
-const express = require('express');
-const router = express.Router();
+const {RequestValidationError, NotFoundError}  = require('../utilities/app-error');
+
 
 let books = [
     { id: 1, title: 'Book 1', author: 'Author 1', year: 2020 },
@@ -7,86 +7,113 @@ let books = [
 ];
 
 
-const addBook = (req, res) => {
+const addBook = (req, res, next) => {
     const { id, title, author, year } = req.body;
 
     if (!id || !title || !author || !year) {
-        return res.status(400).send({ message: 'All fields (id, title, author, year) are required.' });
+        return next(new RequestValidationError('All fields (id, title, author, year) are required.')); // Bad request error
     }
 
     const existingBook = books.find(book => book.id === id);
     if (existingBook) {
-        return res.status(400).send({ message: 'Book with this ID already exists.' });
+        return next(new RequestValidationError('Book with this ID already exists.')); // Bad request error
     }
 
     const book = { id, title, author, year };
     books.push(book);
     res.status(201).send({ message: 'Book is added to the database', book });
-
 };
+
 
 const getBooks = (req, res) => {
     res.status(200).send(books);
 };
 
 
-const getBookById = (req, res) => {
+const getBookById = (req, res, next) => {
     const bookId = parseInt(req.params.id);
 
     if (isNaN(bookId) || bookId <= 0) {
-        return res.status(400).send({ message: 'Invalid Book ID.' });
+        return next(new RequestValidationError('Invalid Book ID.'));
     }
 
     if (!bookId) {
-        return res.status(400).send({ message: 'Book ID is required.' });
+        return next(new RequestValidationError('Invalid Book ID.'));
     }
     const book = books.find(book => book.id === bookId);
 
     if (!book) {
-        return res.status(404).send({ message: 'Book not found.' });
+        return next(new NotFoundError('Book not found.'))
     }
 
     res.status(200).send(book);
 }
 
 
-const editBook = (req, res) => {
+const editBook = (req, res, next) => {
     const bookId = parseInt(req.params.id);
     const { title, author, year } = req.body;
 
     if (isNaN(bookId) || bookId <= 0) {
-        return res.status(400).send({ message: 'Invalid Book ID.' });
+        return next(new RequestValidationError('Invalid Book ID.'));
+
     }
 
     if (!title || !author || !year) {
-        return res.status(400).send({ message: 'Title, author, and year are required.' });
+        return next(new RequestValidationError('Title, author, and year are required.'));
     }
 
     if (!bookId) {
-        return res.status(400).send({ message: 'Book ID is required.' });
+        return next(new RequestValidationError('Book ID is required.'));
     }
 
     const bookIndex = books.findIndex(book => book.id === bookId);
 
     if (bookIndex === -1) {
-        return res.status(404).send({ message: 'Book not found.' });
+        return next(new NotFoundError('Book not found.'))
     }
 
     books[bookIndex] = { id: bookId, title, author, year };
     res.status(200).send(books[bookIndex]);
 };
 
-const deleteBook = (req, res) => {
+const patchBook = (req, res, next) => {
     const bookId = parseInt(req.params.id);
+    const { title, author, year } = req.body;
 
     if (isNaN(bookId) || bookId <= 0) {
-        return res.status(400).send({ message: 'Invalid Book ID.' });
+        return next(new RequestValidationError('Invalid Book ID.'));
     }
 
     const bookIndex = books.findIndex(book => book.id === bookId);
 
     if (bookIndex === -1) {
-        return res.status(404).send({ message: 'Book not found.' });
+        return next(new NotFoundError('Book not found.'))
+    }
+
+    const updatedBook = books[bookIndex];
+
+    if (title) updatedBook.title = title;
+    if (author) updatedBook.author = author;
+    if (year) updatedBook.year = year;
+
+    books[bookIndex] = updatedBook;
+
+    res.status(200).send(updatedBook);
+};
+
+
+const deleteBook = (req, res, next) => {
+    const bookId = parseInt(req.params.id);
+
+    if (isNaN(bookId) || bookId <= 0) {
+        return next(new RequestValidationError('Invalid Book ID.'))
+    }
+
+    const bookIndex = books.findIndex(book => book.id === bookId);
+
+    if (bookIndex === -1) {
+        return next(new NotFoundError('Book not found.'))
     }
 
     books.splice(bookIndex, 1);
@@ -95,4 +122,4 @@ const deleteBook = (req, res) => {
 }
 
 
-module.exports = { addBook, getBooks, getBookById, editBook, deleteBook };
+module.exports = { addBook, getBooks, getBookById, editBook, patchBook, deleteBook };
